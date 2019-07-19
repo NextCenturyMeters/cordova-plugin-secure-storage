@@ -60,6 +60,14 @@ SecureStorage = function (success, error, service, options) {
 };
 
 SecureStorage.prototype = {
+    isFirstRun: function(success, error, key) {
+        try {
+            _executeNativeMethod(success, error, 'getIsFirstRun', [this.service]);
+        } catch (e) {
+            error(e);
+        }
+    },
+
     get: function (success, error, key) {
         try {
             if (!_isString(key)) {

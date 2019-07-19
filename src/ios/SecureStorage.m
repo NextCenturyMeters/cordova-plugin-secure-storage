@@ -4,7 +4,38 @@
 #import <Cordova/CDV.h>
 #import "SAMKeychain.h"
 
-@implementation SecureStorage
+@implementation SecureStorage {
+    bool isFirstRun;
+}
+
+ - (void)pluginInitialize
+{
+    static NSString* const hasRunAppOnceKey = @"hasRunAppOnceKey";
+    NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+    isFirstRun = NO;
+
+     if ([defaults boolForKey:hasRunAppOnceKey] == NO) {
+        isFirstRun = YES;
+        [defaults setBool:YES forKey:hasRunAppOnceKey];
+    }
+
+ }
+
+ -(void)getIsFirstRun:(CDVInvokedUrlCommand*)command
+{
+    NSString* _firstRun = isFirstRun ? @"true" : @"false";
+    [self successWithMessage: _firstRun : command.callbackId];
+}
+
+
+ - (void)finishLaunching:(NSNotification *)notification
+{
+	if (![[NSUserDefaults standardUserDefaults] objectForKey:@"FirstRun"]) {
+        // Delete values from keychain here
+        [[NSUserDefaults standardUserDefaults] setValue:@"1strun" forKey:@"FirstRun"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+    }
+}
 
 - (void)init:(CDVInvokedUrlCommand*)command
 {
@@ -12,7 +43,7 @@
     NSString *keychainAccessibility;
     NSDictionary *keychainAccesssibilityMapping;
 
-    if ([[[UIDevice currentDevice] systemVersion] floatValue] >= 8.0){
+    if ([[[UIDevice currentDevice] systemVersion] floatValue] >= 8.0) {
           keychainAccesssibilityMapping = [NSDictionary dictionaryWithObjectsAndKeys:
               (__bridge id)(kSecAttrAccessibleAfterFirstUnlock), @"afterfirstunlock",
               (__bridge id)(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly), @"afterfirstunlockthisdeviceonly",
