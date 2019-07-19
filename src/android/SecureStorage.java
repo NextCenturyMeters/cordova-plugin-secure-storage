@@ -24,7 +24,6 @@ public class SecureStorage extends CordovaPlugin {
     private static final boolean SUPPORTED = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP;
 
     private static final String MSG_NOT_SUPPORTED = "API 21 (Android 5.0 Lollipop) is required. This device is running API " + Build.VERSION.SDK_INT;
-    private static final String MSG_DEVICE_NOT_SECURE = "Device is not secure";
 
     private Hashtable<String, SharedPreferencesHandler> SERVICE_STORAGE = new Hashtable<String, SharedPreferencesHandler>();
     private String INIT_SERVICE;
@@ -35,11 +34,7 @@ public class SecureStorage extends CordovaPlugin {
     @Override
     public void onResume(boolean multitasking) {
         if (secureDeviceContext != null) {
-            if (isDeviceSecure()) {
-                secureDeviceContext.success();
-            } else {
-                secureDeviceContext.error(MSG_DEVICE_NOT_SECURE);
-            }
+            secureDeviceContext.success();
             secureDeviceContext = null;
         }
 
@@ -52,7 +47,7 @@ public class SecureStorage extends CordovaPlugin {
                         if (!RSA.isEntryAvailable(alias)) {
                             //Solves Issue #96. The RSA key may have been deleted by changing the lock type.
                             getStorage(INIT_SERVICE).clear();
-                            RSA.createKeyPair(getContext(), alias);
+                            RSA.createKeyPair(getContext(), alias, isDeviceSecure());
                         }
                         initSuccess(initContext);
                     } catch (Exception e) {
@@ -80,7 +75,7 @@ public class SecureStorage extends CordovaPlugin {
             String packageName = options.optString("packageName", getContext().getPackageName());
 
             Context ctx = null;
-            
+
             // Solves #151. By default, we use our own ApplicationContext
             // If packageName is provided, we try to get the Context of another Application with that packageName
             try {
@@ -99,12 +94,22 @@ public class SecureStorage extends CordovaPlugin {
             SharedPreferencesHandler PREFS = new SharedPreferencesHandler(alias, ctx);
             SERVICE_STORAGE.put(service, PREFS);
 
-            if (!isDeviceSecure()) {
-                Log.e(TAG, MSG_DEVICE_NOT_SECURE);
-                callbackContext.error(MSG_DEVICE_NOT_SECURE);
-            } else if (!RSA.isEntryAvailable(alias)) {
+            if (!RSA.isEntryAvailable(alias)) {
                 initContext = callbackContext;
-                unlockCredentials();
+                if (isDeviceSecure()) {
+                    unlockCredentials();
+                } else {
+                    try {
+                        RSA.createKeyPair(getContext(), alias, isDeviceSecure());
+                        initSuccess(initContext);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Init failed: ", e);
+                        initContext.error(e.getMessage());
+                    } finally {
+                        initContext = null;
+                        initContextRunning = false;
+                    }
+                }
             } else {
                 initSuccess(callbackContext);
             }
